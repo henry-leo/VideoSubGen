@@ -21,38 +21,23 @@ def convert_seconds_to_timeframe(seconds):
     return time_string
 
 
-def read_srt(srt_path):
-    """Reads srt file and returns a list of subtitles.
-    Args:
-      srt_path: str, path to srt file.
-    Returns:
-      list, list of subtitles.
-    """
-    # read srt file
-    with open(srt_path, 'r', encoding='utf-8') as f:
-        srt = f.readlines()
+def retry_on_error(max_retries, wait_time=1.0):
+    """"""
 
-    # remove new line characters
-    srt = [line.strip() for line in srt]
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            retries = 0
+            while retries < max_retries:
+                try:
+                    result = func(*args, **kwargs)
+                    return result
+                except Exception as e:
+                    print(f"Error：{e}")
+                    print(f" {retries + 1}/{max_retries} time reply...")
+                    retries += 1
+                    time.sleep(wait_time)
+            raise Exception(f"Over，max num is: {max_retries}")
 
-    # remove empty lines
-    srt = [line for line in srt if line]
+        return wrapper
 
-    # get indexes of subtitles
-    indexes = [i for i, line in enumerate(srt) if line.isdigit()]
-
-    # get subtitles
-    subtitles = []
-    for i in range(len(indexes)):
-        # get subtitle index
-        index = indexes[i]
-        # get subtitle time frame
-        time_frame = srt[index + 1]
-        # get subtitle text
-        text = srt[index + 2]
-        # create subtitle
-        subtitle = {"index": i + 1, "time_frame": time_frame, "text": text}
-        # append subtitle to subtitles
-        subtitles.append(subtitle)
-
-    return subtitles
+    return decorator

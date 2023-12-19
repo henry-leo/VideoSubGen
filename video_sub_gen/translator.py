@@ -32,7 +32,6 @@ class Google:
             self.api_url,
             headers=self.headers,
             data=f"q={requests.utils.quote(text)}",
-            timeout=3,
             proxies=self.proxies
         )
         t_text = "".join(

@@ -1,7 +1,9 @@
-from typing import Optional
+from typing import Optional, Iterable, List, Dict, Generator
 
 import tqdm
+from faster_whisper.transcribe import Segment
 
+from video_sub_gen.translator import Google
 from video_sub_gen.utils import convert_seconds_to_timeframe
 
 
@@ -67,22 +69,35 @@ def rewrite_srt(srt_path: str, subtitles: list) -> None:
             f.write(text + "\n\n")
 
 
-def write_srt_from_segments(srt_path: str, segments: iter, verbose: Optional[bool] = False) -> None:
+def write_srt_from_segments(
+    srt_path: str,
+    segments: Iterable[Segment] | List[Dict[str, str | int | list]],
+    verbose: Optional[bool] = False,
+    mode: str = 'faster-whisper'
+) -> None:
     """Writes srt file from segments.
 
     Args:
         srt_path: str, output srt file path.
         segments: iter, segments from whisper-fast.
         verbose: bool, verbose mode, print subtitles, default False.
+        mode: str, the typy of whisper
     """
     with open(srt_path, 'w', encoding='utf-8') as f:
         f.write('')
+
+    if mode == 'faster-whisper':
+        process_func = parse_segment_from_whisper_fast
+    elif mode == 'mlx-whisper':
+        process_func = parse_segment_from_mlx_whisper
+    else:
+        raise NotImplementedError
 
     n = 0
     if verbose:
         for segment in segments:
             n += 1
-            word = parse_segment(segment, n)
+            word = process_func(segment, n)
             with open(srt_path, 'a', encoding='utf-8') as f:
                 f.write(word)
             print(word)
@@ -90,13 +105,13 @@ def write_srt_from_segments(srt_path: str, segments: iter, verbose: Optional[boo
         with tqdm.tqdm(segments, desc='Generating subtitles', unit='segments') as pbar:
             for segment in pbar:
                 n += 1
-                word = parse_segment(segment, n)
+                word = process_func(segment, n)
                 with open(srt_path, 'a', encoding='utf-8') as f:
                     f.write(word)
 
 
-def parse_segment(segment, subtitle_index: int):
-    """Parses segment and returns a subtitle.
+def parse_segment_from_whisper_fast(segment: Segment, subtitle_index: int) -> str:
+    """Parses faster-whisper segment and returns a subtitle.
 
     Args:
       segment: dict, segment.
@@ -117,10 +132,36 @@ def parse_segment(segment, subtitle_index: int):
     return word
 
 
-class VideoSubGen:
-    """"""
+def parse_segment_from_mlx_whisper(segment: Dict[str, str | int | list], subtitle_index: int) -> str:
+    """Parses mlx-whisper segment and returns a subtitle.
 
-    def __init__(self, segments, translator):
+    Args:
+        segment: Dict[str, str | int | list], mlx-whisper segment
+        subtitle_index: int, subtitle index
+
+    Returns:
+        str, subtitle
+    """
+    # get segment start time
+    start = convert_seconds_to_timeframe(segment['start'])
+    # get segment end time
+    end = convert_seconds_to_timeframe(segment['end'])
+
+    text = segment['text']
+    # create subtitle
+    word = (f'{subtitle_index}\n'
+            f'{start} --> {end}\n'
+            f'{text}\n\n')
+
+    return word
+
+
+class VideoSubGen:
+    def __init__(
+        self,
+        segments: Iterable[Segment] | List[Dict[str, str | int | list]],
+        translator: Google
+    ):
         self.segments = segments
         self.translator = translator
 
@@ -132,7 +173,12 @@ class VideoSubGen:
             translate_frame: int, the number of subtitles to translate at a time.
         """
         # generate native subtitles from whisper-fast and save it to srt file
-        write_srt_from_segments(output, self.segments)
+        if isinstance(self.segments, Generator):
+            write_srt_from_segments(output, self.segments)
+        elif isinstance(self.segments, list):
+            write_srt_from_segments(output, self.segments, mode='mlx-whisper')
+        else:
+            raise TypeError
 
         # read srt file
         srt = read_srt(output)

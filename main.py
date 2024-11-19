@@ -4,7 +4,10 @@ from video_sub_gen.io import VideoSubGen
 from video_sub_gen.translator import Google
 
 # write your config here
-model_size = 'base'  # 'tiny', 'base', 'small', 'medium', 'large'
+
+# 'tiny', 'base', 'small', 'medium', 'large'
+# or 'mlx-community/whisper-tiny-mlx-q4', 'mlx-community/whisper-large-v3-mlx'
+model_size = 'base'
 video = ''
 source_lang = 'en'  # 'en', 'ja', 'zh'
 target_lang = 'zh'

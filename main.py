@@ -18,6 +18,13 @@ proxies = {'https': '',
 # get segments from whisper-fast
 model = WhisperModel(model_size, device='cuda', compute_type='float32')
 segments, info = model.transcribe(video, language=source_lang, vad_filter=True)
+# get segments for mlx-whisper
+# import mlx_whisper
+# segments = mlx_whisper.transcribe(
+#     video,
+#     path_or_hf_repo=model_size,
+#     verbose=False,
+#     word_timestamps=True)['segments']
 
 # implement translator
 translator = Google(source_lang, 'zh', proxies=proxies)
